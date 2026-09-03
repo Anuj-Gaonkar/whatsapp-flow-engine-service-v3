@@ -1,0 +1,582 @@
+{
+  "data_api_version": "3.0",
+  "version": "7.3",
+  "routing_model": {
+    "PRO_WELCOME_SCREEN": ["PRO_AMB_MENU_SCREEN"],
+    "PRO_AMB_MENU_SCREEN": [
+      "PRO_FUND_NOW_SCREEN",
+      "PRO_FUNDS_TIMING_SCREEN",
+      "PRO_CASH_FLOW_MENU_SCREEN",
+      "PRO_INFO_MENU_SCREEN",
+      "PRO_CHURN_REASON_SCREEN"
+    ],
+    "PRO_FUND_NOW_SCREEN": [],
+    "PRO_FUNDS_TIMING_SCREEN": ["PRO_FUNDS_REMINDER_SET_SCREEN"],
+    "PRO_FUNDS_REMINDER_SET_SCREEN": [],
+    "PRO_CASH_FLOW_MENU_SCREEN": [
+      "PRO_FUNDS_TIMING_SCREEN",
+      "PRO_EXECUTIVE_HANDOFF_SCREEN",
+      "PRO_CHARGES_INFO_SCREEN"
+    ],
+    "PRO_EXECUTIVE_HANDOFF_SCREEN": [],
+    "PRO_CHARGES_INFO_SCREEN": [],
+    "PRO_INFO_MENU_SCREEN": ["PRO_INFO_REDIRECT_SCREEN", "PRO_ACCOUNT_UPGRADE_SCREEN"],
+    "PRO_INFO_REDIRECT_SCREEN": [],
+    "PRO_ACCOUNT_UPGRADE_SCREEN": [],
+    "PRO_CHURN_REASON_SCREEN": [
+      "PRO_SALARY_OFFER_SCREEN",
+      "PRO_RETENTION_APPEAL_SCREEN",
+      "PRO_VISIT_BRANCH_SCREEN",
+      "PRO_CALLBACK_CONFIRM_SCREEN",
+      "PRO_OTHER_REASON_SCREEN"
+    ],
+    "PRO_OTHER_REASON_SCREEN": ["PRO_CALLBACK_CONFIRM_SCREEN"],
+    "PRO_CALLBACK_CONFIRM_SCREEN": ["PRO_CALLBACK_LOGGED_SCREEN"],
+    "PRO_CALLBACK_LOGGED_SCREEN": [],
+    "PRO_SALARY_OFFER_SCREEN": [],
+    "PRO_RETENTION_APPEAL_SCREEN": [],
+    "PRO_VISIT_BRANCH_SCREEN": []
+  },
+  "screens": [
+    {
+      "id": "PRO_WELCOME_SCREEN",
+      "title": "AMB Reminder",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "You are on the HDFC Bank WhatsApp Chat. We need to share some urgent and important information about AMB maintenance in your Savings Account.\n\nYour balance maintenance in your Savings Account is currently low.\n\nTo help you continue enjoying all account benefits and avoid AMB non-maintenance charges in future, we would want you to fund your account appropriately. Please let us know how you would like to proceed."
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": { "name": "data_exchange", "payload": {} }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_AMB_MENU_SCREEN",
+      "title": "What Would You Like to Do?",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "How Can We Help?" },
+          {
+            "type": "TextBody",
+            "text": "Pick whichever describes your situation best, and we'll guide you from there."
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "amb_menu_option",
+            "label": "Select an option",
+            "required": true,
+            "data-source": [
+              { "id": "fund_now", "title": "I'll fund my account now" },
+              { "id": "funds_shortly", "title": "I expect funds shortly" },
+              { "id": "cash_flow_constraint", "title": "I'm facing a cash flow issue" },
+              { "id": "unaware_requirement", "title": "I wasn't aware of this" },
+              { "id": "inactive_account", "title": "This account is inactive" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "amb_menu_option": "${form.amb_menu_option}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_FUND_NOW_SCREEN",
+      "title": "Fund Your Account",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "payment_link": { "type": "string", "__example__": "https://pay.hdfcbank.com/amb/abc123" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank you!" },
+          {
+            "type": "TextBody",
+            "text": "Please fund your account by clicking on the below secured link. This will help you avoid AMB non-maintenance charges."
+          },
+          {
+            "type": "EmbeddedLink",
+            "text": "Fund my account securely",
+            "on-click-action": {
+              "name": "open_url",
+              "url": "${data.payment_link}"
+            }
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "outcome_screen": "PRO_FUND_NOW_SCREEN",
+                "payment_link": "${data.payment_link}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_FUNDS_TIMING_SCREEN",
+      "title": "When Do You Expect Funds?",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Got It" },
+          {
+            "type": "TextBody",
+            "text": "Thanks for letting us know funds are on the way. When should we expect them, so we can set the right reminder?"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "funds_timing_option",
+            "label": "When do you expect the funds?",
+            "required": true,
+            "data-source": [
+              { "id": "within_three_days", "title": "Within 3 days" },
+              { "id": "within_seven_days", "title": "Within 7 days" },
+              { "id": "within_fifteen_days", "title": "Within 15 days" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "funds_timing_option": "${form.funds_timing_option}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_FUNDS_REMINDER_SET_SCREEN",
+      "title": "Reminder Set",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "reminder_date": { "type": "string", "__example__": "2026-09-01" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "You're all set" },
+          {
+            "type": "TextBody",
+            "text": "We will send you a reminder one day before the expected date. Thank you!"
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "outcome_screen": "PRO_FUNDS_REMINDER_SET_SCREEN",
+                "reminder_date": "${data.reminder_date}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_CASH_FLOW_MENU_SCREEN",
+      "title": "How Can We Assist You?",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank You" },
+          {
+            "type": "TextBody",
+            "text": "We understand situations can be challenging. Let us know how we can help."
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "cash_flow_option",
+            "label": "How can we assist you?",
+            "required": true,
+            "data-source": [
+              { "id": "remind_me_later", "title": "Remind me later" },
+              { "id": "speak_to_executive", "title": "Speak to an executive" },
+              { "id": "understand_charges", "title": "Understand applicable charges" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "cash_flow_option": "${form.cash_flow_option}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_EXECUTIVE_HANDOFF_SCREEN",
+      "title": "Connecting You",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank you!" },
+          {
+            "type": "TextBody",
+            "text": "We're connecting you with an executive who will assist you shortly."
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "outcome_screen": "PRO_EXECUTIVE_HANDOFF_SCREEN" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_CHARGES_INFO_SCREEN",
+      "title": "Applicable Charges",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Applicable charges" },
+          {
+            "type": "TextBody",
+            "text": "You can learn more about applicable charges on our website or at your nearest branch."
+          },
+          {
+            "type": "EmbeddedLink",
+            "text": "View charges on our website",
+            "on-click-action": {
+              "name": "open_url",
+              "url": "https://www.hdfcbank.com/personal/save/accounts/amb-charges"
+            }
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "outcome_screen": "PRO_CHARGES_INFO_SCREEN" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_INFO_MENU_SCREEN",
+      "title": "Know More About",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Happy to Help" },
+          {
+            "type": "TextBody",
+            "text": "No worries - AMB requirements can be confusing. Pick a topic below and we'll explain."
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "info_option",
+            "label": "Choose a topic",
+            "required": true,
+            "data-source": [
+              { "id": "amb_charges", "title": "AMB charges" },
+              { "id": "easy_ways_to_maintain_balance", "title": "Easy ways to maintain balance" },
+              { "id": "upgrade_benefits", "title": "Upgrade benefits" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "info_option": "${form.info_option}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_INFO_REDIRECT_SCREEN",
+      "title": "Learn More",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Here's a quick overview" },
+          {
+            "type": "TextBody",
+            "text": "You can learn more about this on our website or by visiting your nearest branch."
+          },
+          {
+            "type": "EmbeddedLink",
+            "text": "Visit our website",
+            "on-click-action": {
+              "name": "open_url",
+              "url": "https://www.hdfcbank.com/personal/save/accounts/amb"
+            }
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "outcome_screen": "PRO_INFO_REDIRECT_SCREEN" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_ACCOUNT_UPGRADE_SCREEN",
+      "title": "Account Upgrade",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank you for your interest" },
+          {
+            "type": "TextBody",
+            "text": "Our team will reach out separately to help you explore account upgrade options for this account."
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "outcome_screen": "PRO_ACCOUNT_UPGRADE_SCREEN" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_CHURN_REASON_SCREEN",
+      "title": "Reason for Leaving",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "We Hear You" },
+          {
+            "type": "TextBody",
+            "text": "We're sorry to hear that, and we'd like to understand why so we can do better. What's the main reason?"
+          },
+          {
+            "type": "RadioButtonsGroup",
+            "name": "churn_reason_option",
+            "label": "What's the main reason?",
+            "required": true,
+            "data-source": [
+              { "id": "salary_moved", "title": "Salary moved elsewhere" },
+              { "id": "better_offer_elsewhere", "title": "Better offer elsewhere" },
+              { "id": "account_no_longer_needed", "title": "Account no longer needed" },
+              { "id": "service_concern", "title": "Service concern" },
+              { "id": "other", "title": "Other (please specify)" }
+            ]
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "churn_reason_option": "${form.churn_reason_option}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_OTHER_REASON_SCREEN",
+      "title": "Tell Us More",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "One More Thing" },
+          {
+            "type": "TextBody",
+            "text": "Please share a bit more detail so we can understand and follow up correctly."
+          },
+          {
+            "type": "TextInput",
+            "name": "other_reason",
+            "label": "Your reason",
+            "input-type": "text",
+            "required": true
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": { "other_reason": "${form.other_reason}" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_CALLBACK_CONFIRM_SCREEN",
+      "title": "Request a Callback",
+      "terminal": false,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Request a Callback" },
+          {
+            "type": "TextBody",
+            "text": "Thank you for your response. We can have someone from the branch call you to help with this."
+          },
+          {
+            "type": "Footer",
+            "label": "Request a callback",
+            "on-click-action": { "name": "data_exchange", "payload": {} }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_CALLBACK_LOGGED_SCREEN",
+      "title": "Callback Requested",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "callback_id": { "type": "string", "__example__": "CB-000123" }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank you" },
+          {
+            "type": "TextBody",
+            "text": "We've logged your request. Someone will call you back shortly."
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "outcome_screen": "PRO_CALLBACK_LOGGED_SCREEN",
+                "callback_id": "${data.callback_id}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_SALARY_OFFER_SCREEN",
+      "title": "Salary Account Offer",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank you!" },
+          {
+            "type": "TextBody",
+            "text": "We're connecting you with an executive to help convert this into a Salary Account."
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "outcome_screen": "PRO_SALARY_OFFER_SCREEN" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_RETENTION_APPEAL_SCREEN",
+      "title": "We'd Love to Keep You",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank you for your response" },
+          {
+            "type": "TextBody",
+            "text": "We would still like to serve you - please maintain your AMB balance to avoid any charges."
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "outcome_screen": "PRO_RETENTION_APPEAL_SCREEN" }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "PRO_VISIT_BRANCH_SCREEN",
+      "title": "Visit Your Branch",
+      "terminal": true,
+      "success": true,
+      "data": {},
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          { "type": "TextHeading", "text": "Thank you for your response" },
+          {
+            "type": "TextBody",
+            "text": "Please visit the branch for any other details."
+          },
+          {
+            "type": "Footer",
+            "label": "Done",
+            "on-click-action": {
+              "name": "complete",
+              "payload": { "outcome_screen": "PRO_VISIT_BRANCH_SCREEN" }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

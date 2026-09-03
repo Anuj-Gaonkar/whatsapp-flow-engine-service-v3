@@ -1,0 +1,64 @@
+spring:
+  application:
+    name: whatsapp-flow-engine-service-v3
+  # Same Postgres instance whatsapp-flow-engine-service (V2) uses (host port 5434), but its own
+  # database ("chatbot_v3", not "chatbot") - fully isolated, no tables shared with V2 or any
+  # other service on that instance. Run db/01_schema.sql against this database before starting
+  # the app - see that file's own header for how to create the database itself first.
+  datasource:
+    url: jdbc:postgresql://localhost:5434/chatbot_v3?currentSchema=flow_engine&stringtype=unspecified
+    username: chatbot
+    password: chatbot
+  jpa:
+    hibernate:
+      # Schema is owned by db/01_schema.sql, not by Hibernate - this only checks the entities
+      # still match what's actually in the database, it never creates or alters anything itself.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: flow_engine
+
+# Distinct from chat-bot-service (8080) and whatsapp-flow-engine-service V2 (8081).
+server:
+  port: 8082
+
+whatsapp:
+  cloud-api-base-url: https://graph.facebook.com/v20.0
+  waba-id: ${WA_WABA_ID:107196838679694}
+  phone-number-id: ${WA_PHONE_NUMBER_ID:102088149199829}
+  access-token: ${WA_ACCESS_TOKEN:EAAlGZBlB0YREBSZAFZCPQp383MeDOYDaA0oXt6cyP189bFNsx0iUE994oqptZA0cDxymiyujDfAtZCYFwMm73jxg1A839BfT2Av46b4ZCT4JWXQ1uzGFXSS5ceJwtolDmwzRqPBixRDZBZBNZAUUuDg5lHmAZA8i7tJi5JspoPhSuw53FBJvVZA24rs6C0zZB6CTlcqueJywlZB2ZAmX3iiRosA373Y2KRCY4NDasTrzUpLZCePYVN0DM3Sz2vMTjTY8cSAo1Rp45cVtfwp0qSm2CZCJUCXtPkgIShorpsOSCFHNPQZDZD}
+  verify-token: ${WA_VERIFY_TOKEN:HDFCCERN}
+  # HMAC-SHA256 key for verifying X-Hub-Signature-256 on both /webhook and /webhook/flow.
+  app-secret: ${WA_APP_SECRET:7665cc5c9ef82499ad71c0dc0adbffab}
+  # Same RSA keypair as whatsapp-flow-engine-service (V2) - see keys/README below.
+  rsa-private-key-path: ${WA_RSA_PRIVATE_KEY_PATH:keys/private_plain.pem}
+  # Only needed if the private key above is passphrase-encrypted (keys/private.pem is; leave
+  # this blank when pointing rsa-private-key-path at keys/private_plain.pem instead).
+  rsa-private-key-passphrase: ${WA_RSA_PRIVATE_KEY_PASSPHRASE:cern}
+
+# Every WhatsApp Flow this service knows how to trigger and drive. Registering a new one is pure
+# config: add a block here (env vars for the values that differ per deployment) plus that flow's
+# screens/transitions in the database (see db/02_seed_amb_reminder_example.sql for the shape) -
+# no code change, no new controller or route.
+flows:
+  default-flow-key: ${FLOW_DEFAULT_KEY:AMB_REMINDER}
+  definitions:
+    AMB_REMINDER:
+      entry-screen-id: FULL_WELCOME_SCREEN
+      meta-flow-id: ${WA_FLOW_ID_AMB_REMINDER:1385458889718781}
+      mode: ${WA_FLOW_MODE_AMB_REMINDER:published}
+      cta-label: Review AMB
+      body-text: Please review your account balance status
+    AMB_REMINDER_RADIO:
+      entry-screen-id: PRO_WELCOME_SCREEN
+      meta-flow-id: ${WA_FLOW_ID_AMB_REMINDER:2118583488730077}
+      mode: ${WA_FLOW_MODE_AMB_REMINDER:published}
+      cta-label: Review AMB with Radio buttons
+      body-text: Please review your account balance status
+
+    # INACTIVE_SALARY:
+    #   entry-screen-id: SALARY_WELCOME_SCREEN
+    #   meta-flow-id: ${WA_FLOW_ID_INACTIVE_SALARY:}
+    #   mode: ${WA_FLOW_MODE_INACTIVE_SALARY:published}
+    #   cta-label: Review Account
+    #   body-text: We noticed your salary account has been inactive - let's help you fix that
