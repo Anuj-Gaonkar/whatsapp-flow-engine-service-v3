@@ -6,113 +6,70 @@
 <title>Flow Graph Viewer</title>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
 <style>
-  :root {
-    color-scheme: light dark;
-    --ink: #14201b;
-    --ink-soft: #52645a;
-    --ink-faint: #7c8c82;
-    --paper: #f5f7f4;
-    --paper-raised: #ffffff;
-    --line: #dbe3dc;
-    --accent: #1f7a5c;
-    --accent-soft: #e4f2ec;
-    --amber: #a5680c;
-    --code-bg: #eef1ed;
-
-    /* The diagram card is a fixed "blueprint" surface in both themes - see .blueprint below. */
-    --bp-bg: #0b2b4a;
-    --bp-grid: rgba(111, 183, 217, 0.16);
-    --bp-line: #8fd0ec;
-    --bp-node: #eef6fb;
-    --bp-node-text: #0b2b4a;
-    --bp-entry: #6fd9b0;
-    --bp-terminal: #f2b134;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --ink: #e7efe9; --ink-soft: #a3b3a9; --ink-faint: #74857b;
-      --paper: #0e1512; --paper-raised: #16211c; --line: #253a30;
-      --accent: #55d6a8; --accent-soft: #163229; --amber: #e6b04a; --code-bg: #101a15;
-    }
-  }
-  :root[data-theme="dark"] {
-    --ink: #e7efe9; --ink-soft: #a3b3a9; --ink-faint: #74857b;
-    --paper: #0e1512; --paper-raised: #16211c; --line: #253a30;
-    --accent: #55d6a8; --accent-soft: #163229; --amber: #e6b04a; --code-bg: #101a15;
-  }
-
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: var(--paper);
-    color: var(--ink);
-    font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #ffffff;
+    color: #000000;
+    font: 14px/1.5 ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
   }
-  .mono { font-family: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace; }
 
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 48px; display: flex; flex-direction: column; gap: 18px; }
+  .wrap { max-width: 1150px; margin: 0 auto; padding: 24px 20px 48px; display: flex; flex-direction: column; gap: 16px; }
 
   header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px; }
-  header h1 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
-  header .sub { color: var(--ink-faint); font-size: 12.5px; }
+  header h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  header .sub { color: #444444; font-size: 12.5px; }
 
   .toolbar {
     display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-    background: var(--paper-raised); border: 1px solid var(--line); border-radius: 8px;
-    padding: 10px 12px;
+    border: 1px solid #000000; padding: 10px 12px;
   }
-  .toolbar label { font-size: 12.5px; color: var(--ink-soft); }
+  .toolbar label { font-size: 12.5px; }
   .toolbar input[type="text"] {
     font-family: inherit; font-size: 13px; padding: 6px 9px;
-    border: 1px solid var(--line); border-radius: 6px;
-    background: var(--paper); color: var(--ink); min-width: 200px;
+    border: 1px solid #000000; background: #ffffff; color: #000000; min-width: 200px;
   }
   .toolbar button {
-    font-weight: 600; font-size: 13px; padding: 7px 14px; border: none; border-radius: 6px;
-    background: var(--accent); color: var(--paper-raised); cursor: pointer;
+    font-family: inherit; font-weight: 700; font-size: 13px; padding: 7px 14px;
+    border: 1px solid #000000; background: #ffffff; color: #000000; cursor: pointer;
   }
-  .toolbar button:hover { filter: brightness(1.08); }
-  .toolbar .stats { margin-left: auto; font-size: 12.5px; color: var(--ink-soft); }
-  .toolbar .stats b { color: var(--ink); }
+  .toolbar button:hover, .toolbar button:focus-visible { background: #000000; color: #ffffff; }
+  .toolbar .stats { margin-left: auto; font-size: 12.5px; }
 
   #error {
-    display: none; font-size: 13px; color: #b3261e; background: #fbe9e7;
-    border: 1px solid #e6b3ac; border-radius: 6px; padding: 8px 12px;
+    display: none; font-size: 13px; border: 1px solid #000000; padding: 8px 12px;
   }
 
-  .panel {
-    background: var(--paper-raised); border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+  .panel { border: 1px solid #000000; }
+  .diagram {
+    min-height: 460px;
+    background: #ffffff;
+    padding: 20px;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
   }
-  .blueprint {
-    min-height: 420px;
-    background:
-      linear-gradient(var(--bp-grid) 1px, transparent 1px) 0 0 / 28px 28px,
-      linear-gradient(90deg, var(--bp-grid) 1px, transparent 1px) 0 0 / 28px 28px,
-      var(--bp-bg);
-    padding: 20px; overflow: auto; display: flex; align-items: flex-start; justify-content: center;
-  }
-  .blueprint svg { max-width: none; }
-  .blueprint .empty { color: #8fd0ec; font-size: 13px; align-self: center; }
+  .diagram svg { max-width: none; }
+  .diagram .empty { font-size: 13px; align-self: center; }
 
   .legend {
-    display: flex; flex-wrap: wrap; gap: 16px; padding: 10px 14px;
-    border-top: 1px solid var(--line); font-size: 12.5px; color: var(--ink-soft);
+    display: flex; flex-wrap: wrap; gap: 18px; padding: 10px 14px;
+    border-top: 1px solid #000000; font-size: 12.5px;
   }
-  .legend .item { display: flex; align-items: center; gap: 6px; }
-  .swatch { width: 13px; height: 13px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.15); }
-  .swatch.entry { background: var(--bp-entry); }
-  .swatch.terminal { background: var(--bp-terminal); }
-  .swatch.screen { background: var(--bp-node); }
-  .rule { width: 20px; height: 0; border-top: 2px solid var(--bp-line); }
+  .legend .item { display: flex; align-items: center; gap: 7px; }
+  .shape { width: 24px; height: 15px; flex: none; background: #ffffff; }
+  .shape.entry { border: 2px solid #000000; border-radius: 999px; }
+  .shape.screen { border: 1.5px solid #000000; }
+  .shape.terminal { border: 3px double #000000; }
+  .rule { width: 22px; height: 0; border-top: 2px solid #000000; }
   .rule.dashed { border-top-style: dashed; }
 
-  details { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 8px; }
-  details summary {
-    cursor: pointer; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
-  }
+  details { border: 1px solid #000000; }
+  details summary { cursor: pointer; padding: 10px 14px; font-size: 12.5px; font-weight: 700; }
   details pre {
-    margin: 0; padding: 12px 14px; border-top: 1px solid var(--line);
-    background: var(--code-bg); font-size: 12px; overflow-x: auto; max-height: 320px;
+    margin: 0; padding: 12px 14px; border-top: 1px solid #000000;
+    font-size: 12px; overflow-x: auto; max-height: 320px;
   }
 </style>
 </head>
@@ -122,25 +79,25 @@
   <header>
     <div>
       <h1>Flow Graph Viewer</h1>
-      <div class="sub mono">GET /flows/{flowKey}/graph &rarr; rendered flowchart</div>
+      <div class="sub">GET /flows/{flowKey}/graph -&gt; rendered flowchart</div>
     </div>
   </header>
 
   <div class="toolbar">
     <label for="flowKey">Flow key</label>
-    <input type="text" id="flowKey" class="mono" value="AMB_REMINDER" autocomplete="off">
+    <input type="text" id="flowKey" value="AMB_REMINDER" autocomplete="off">
     <button id="load" type="button">Load</button>
-    <span class="stats mono" id="stats"></span>
+    <span class="stats" id="stats"></span>
   </div>
 
   <div id="error"></div>
 
   <div class="panel">
-    <div class="blueprint" id="diagramHost"><span class="empty">Loading&hellip;</span></div>
+    <div class="diagram" id="diagramHost"><span class="empty">Loading...</span></div>
     <div class="legend">
-      <span class="item"><span class="swatch entry"></span>entry screen</span>
-      <span class="item"><span class="swatch screen"></span>screen</span>
-      <span class="item"><span class="swatch terminal"></span>terminal (nfm_reply)</span>
+      <span class="item"><span class="shape entry"></span>entry screen</span>
+      <span class="item"><span class="shape screen"></span>screen</span>
+      <span class="item"><span class="shape terminal"></span>terminal (nfm_reply)</span>
       <span class="item"><span class="rule"></span>option / transition</span>
       <span class="item"><span class="rule dashed"></span>back target</span>
     </div>
@@ -148,7 +105,7 @@
 
   <details>
     <summary>Raw JSON response</summary>
-    <pre class="mono" id="rawJson"></pre>
+    <pre id="rawJson"></pre>
   </details>
 </div>
 
@@ -156,18 +113,24 @@
 (function () {
   mermaid.initialize({
     startOnLoad: false,
-    theme: 'base',
+    theme: 'neutral',
     themeVariables: {
-      background: 'transparent',
-      primaryColor: '#eef6fb',
-      primaryBorderColor: '#0b2b4a',
-      primaryTextColor: '#0b2b4a',
-      lineColor: '#8fd0ec',
-      edgeLabelBackground: '#0b2b4a',
+      background: '#ffffff',
+      primaryColor: '#ffffff',
+      primaryBorderColor: '#000000',
+      primaryTextColor: '#000000',
+      lineColor: '#000000',
+      edgeLabelBackground: '#ffffff',
+      textColor: '#000000',
       fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
-      fontSize: '13px'
+      fontSize: '15px'
     },
-    flowchart: { curve: 'basis' }
+    flowchart: {
+      curve: 'basis',
+      nodeSpacing: 55,
+      rankSpacing: 75,
+      htmlLabels: true
+    }
   });
 
   function safeId(screenId) {
@@ -181,12 +144,14 @@
 
   /**
    * Turns a FlowGraphView { flowKey, entryScreenId, nodes[], edges[] } into a Mermaid
-   * flowchart definition:
-   *   1. one node per screen - stadium for the entry screen and every TERMINAL node,
-   *      rectangle otherwise;
-   *   2. one solid, labeled edge per flow_transition row in edges[];
-   *   3. one dashed edge per node.backTargetScreenId - BACK is a static jump the node
-   *      itself carries, not a customer-chosen option, so it isn't in edges[].
+   * flowchart definition. Node type is read from shape alone, not color, so the diagram
+   * stays legible in plain black-and-white:
+   *   - entry screen  -> stadium            (["label"])
+   *   - TERMINAL node -> double-bordered box [["label"]]
+   *   - everything else (SCREEN) -> plain box ["label"]
+   * Edges: one solid, labeled arrow per flow_transition row in edges[]; one dashed arrow
+   * per node.backTargetScreenId (BACK is a static jump the node itself carries, not a
+   * customer-chosen option, so it isn't in edges[]).
    */
   function graphToMermaid(graph) {
     var nodes = graph.nodes || [];
@@ -196,18 +161,18 @@
     nodes.forEach(function (n) { idOf[n.screenId] = safeId(n.screenId); });
 
     var lines = ['flowchart TD'];
-    var entries = [], terminals = [], plain = [];
+    var entries = [];
 
     nodes.forEach(function (n) {
       var id = idOf[n.screenId];
       var label = sanitizeLabel(n.screenId);
       var isTerminal = n.nodeType === 'TERMINAL';
       var isEntry = n.screenId === entry;
-      var shape = (isTerminal || isEntry) ? '(["' + label + '"])' : '["' + label + '"]';
+      var shape = isEntry ? '(["' + label + '"])'
+        : isTerminal ? '[["' + label + '"]]'
+        : '["' + label + '"]';
       lines.push('  ' + id + shape);
       if (isEntry) entries.push(id);
-      else if (isTerminal) terminals.push(id);
-      else plain.push(id);
     });
 
     edges.slice()
@@ -228,12 +193,11 @@
       }
     });
 
-    lines.push('  classDef entry fill:#6fd9b0,stroke:#0b2b4a,color:#0b2b4a,stroke-width:2px;');
-    lines.push('  classDef terminal fill:#f2b134,stroke:#0b2b4a,color:#0b2b4a,stroke-width:2px;');
-    lines.push('  classDef screen fill:#eef6fb,stroke:#0b2b4a,color:#0b2b4a,stroke-width:1.5px;');
-    if (plain.length) lines.push('  class ' + plain.join(',') + ' screen;');
-    if (terminals.length) lines.push('  class ' + terminals.join(',') + ' terminal;');
-    if (entries.length) lines.push('  class ' + entries.join(',') + ' entry;');
+    lines.push('  classDef default fill:#ffffff,stroke:#000000,color:#000000,stroke-width:1.5px;');
+    if (entries.length) {
+      lines.push('  classDef entry fill:#ffffff,stroke:#000000,color:#000000,stroke-width:3px;');
+      lines.push('  class ' + entries.join(',') + ' entry;');
+    }
 
     return lines.join('\n');
   }
@@ -241,9 +205,8 @@
   function setStats(graph) {
     var backCount = (graph.nodes || []).filter(function (n) { return !!n.backTargetScreenId; }).length;
     document.getElementById('stats').innerHTML =
-      '<b>' + (graph.nodes || []).length + '</b> screens &middot; ' +
-      '<b>' + (graph.edges || []).length + '</b> options &middot; ' +
-      '<b>' + backCount + '</b> back-links &middot; entry <b>' + graph.entryScreenId + '</b>';
+      graph.nodes.length + ' screens, ' + graph.edges.length + ' options, ' +
+      backCount + ' back-links, entry ' + graph.entryScreenId;
   }
 
   function showError(message) {
@@ -263,7 +226,7 @@
     var flowKey = document.getElementById('flowKey').value.trim();
     if (!flowKey) return;
     showError('');
-    document.getElementById('diagramHost').innerHTML = '<span class="empty">Loading&hellip;</span>';
+    document.getElementById('diagramHost').innerHTML = '<span class="empty">Loading...</span>';
 
     history.replaceState(null, '', '?flowKey=' + encodeURIComponent(flowKey));
 
