@@ -34,6 +34,7 @@ public class TriggerController {
 
 	@PostMapping("/trigger")
 	public ResponseEntity<Map<String, Object>> trigger(@RequestBody TriggerRequest request) {
+		log.info("to: {}", request.to());
 		String flowKey = isBlank(request.flowKey()) ? flowRegistry.defaultFlowKey() : request.flowKey();
 
 		if (!flowRegistry.isRegistered(flowKey)) {

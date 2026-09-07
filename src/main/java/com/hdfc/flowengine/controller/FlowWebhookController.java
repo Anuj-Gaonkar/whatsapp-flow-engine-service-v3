@@ -70,6 +70,7 @@ public class FlowWebhookController {
 	}
 
 	private ResponseEntity<String> process(String rawBody, String signature, String entryScreenId) {
+		log.info("Get data {}", rawBody);
 		if (!signatureVerifier.isValid(rawBody, signature)) {
 			log.warn("Rejecting Flow data-endpoint request: invalid X-Hub-Signature-256");
 			return ResponseEntity.status(SIGNATURE_INVALID_STATUS).build();
