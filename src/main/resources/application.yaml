@@ -22,6 +22,11 @@ spring:
 server:
   port: 8082
 
+# Where the ACTION_SCHEDULE_FUNDS_REMINDER simulated action schedules a real reminder -
+# temporal-workflow-service's POST /reminders. No Kafka in between either direction.
+temporal-workflow-service:
+  base-url: ${TEMPORAL_WORKFLOW_SERVICE_BASE_URL:http://localhost:8083}
+
 whatsapp:
   cloud-api-base-url: https://graph.facebook.com/v20.0
   waba-id: ${WA_WABA_ID:107196838679694}

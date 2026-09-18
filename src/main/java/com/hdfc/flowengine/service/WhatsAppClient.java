@@ -69,4 +69,24 @@ public class WhatsAppClient {
 		log.info("Flow trigger message response to={} flowToken={} response={}", to, flowToken, response);
 		return response;
 	}
+
+	/** Sends a plain text WhatsApp message - used for reminder delivery, not Flow-related. */
+	public Map<String, Object> sendText(String to, String message) {
+		Map<String, Object> body = Map.of(
+				"messaging_product", "whatsapp",
+				"to", to,
+				"type", "text",
+				"text", Map.of("body", message)
+		);
+
+		log.info("Sending text message to={} message={}", to, message);
+		Map<String, Object> response = restClient.post()
+				.uri("/{phoneNumberId}/messages", properties.phoneNumberId())
+				.body(body)
+				.retrieve()
+				.body(new ParameterizedTypeReference<Map<String, Object>>() {
+				});
+		log.info("Text message response to={} response={}", to, response);
+		return response;
+	}
 }

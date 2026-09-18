@@ -13,6 +13,8 @@ import com.hdfc.flowengine.repository.FlowSessionRepository;
 import com.hdfc.flowengine.repository.FlowTransitionRepository;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +49,17 @@ public class FlowEngineService {
 	private static final String ACTION_LOG_CALLBACK_REQUEST = "LOG_CALLBACK_REQUEST";
 
 	private static final String FUNDS_TIMING_OPTION_FIELD = "funds_timing_option";
+	private static final String FUNDS_REMINDER_MESSAGE =
+			"Reminder: please transfer funds to maintain your Average Monthly Balance.";
+	// "N days from now" is a calendar concept for display purposes (reminder_date shown back to
+	// the customer) - IST since this flow is India-only, distinct from the UTC the JVM/DB run in.
+	private static final ZoneId REMINDER_DISPLAY_ZONE = ZoneId.of("Asia/Kolkata");
 
 	private final FlowNodeRepository flowNodeRepository;
 	private final FlowTransitionRepository flowTransitionRepository;
 	private final FlowSessionRepository flowSessionRepository;
 	private final FlowNodeHistoryRepository flowNodeHistoryRepository;
+	private final TemporalReminderClient temporalReminderClient;
 
 	/**
 	 * Meta's first call for a Flow instance. Normally the flow_session row already exists
@@ -155,8 +163,12 @@ public class FlowEngineService {
 			case ACTION_GENERATE_FUND_LINK ->
 					context.put("payment_link", "https://pay.hdfcbank.com/amb/" + shortId());
 			case ACTION_SCHEDULE_FUNDS_REMINDER -> {
-				context.put("reminder_id", "REM-" + shortId());
-				context.put("reminder_date", computeReminderDate(context.get(FUNDS_TIMING_OPTION_FIELD)));
+				int days = resolveReminderDays(context.get(FUNDS_TIMING_OPTION_FIELD));
+				Instant remindAt = Instant.now().plus(days, ChronoUnit.DAYS);
+				TemporalReminderClient.ScheduleResult result =
+						temporalReminderClient.schedule(session.getWaId(), FUNDS_REMINDER_MESSAGE, remindAt);
+				context.put("reminder_id", result.reminderId());
+				context.put("reminder_date", LocalDate.ofInstant(remindAt, REMINDER_DISPLAY_ZONE).toString());
 			}
 			case ACTION_ROUTE_TO_EXECUTIVE -> context.put("handoff_id", "HANDOFF-" + shortId());
 			case ACTION_CONVERT_SALARY_ACCOUNT -> context.put("request_id", "REQ-" + shortId());
@@ -169,14 +181,13 @@ public class FlowEngineService {
 		return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 	}
 
-	private String computeReminderDate(Object timingOption) {
-		int days = switch (String.valueOf(timingOption)) {
+	private int resolveReminderDays(Object timingOption) {
+		return switch (String.valueOf(timingOption)) {
 			case "within_three_days" -> 3;
 			case "within_seven_days" -> 7;
 			case "within_fifteen_days" -> 15;
 			default -> 7;
 		};
-		return LocalDate.now().plusDays(days).toString();
 	}
 
 	/**
