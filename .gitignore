@@ -22,6 +22,9 @@ target/
 ### VS Code ###
 .vscode/
 
+### Claude Code local state - worktrees etc, never shared content ###
+.claude/
+
 ### Secrets - never commit ###
 keys/
 application-local.yaml
