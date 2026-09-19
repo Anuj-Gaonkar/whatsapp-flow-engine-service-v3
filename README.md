@@ -6,6 +6,14 @@ encryption keypair. Modeled on `whatsapp-flow-engine-service` (V2) but restructu
 layered package layout (`controller` / `service` / `repository` / `entity` / `model`) and with its
 own, fully isolated Postgres database.
 
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [`REMINDER_SERVICES_GUIDE.md`](REMINDER_SERVICES_GUIDE.md) | Complete guide to this service **and** `temporal-workflow-service`: architecture, the end-to-end reminder flow, every endpoint/table/class, DEMO vs PRODUCTION reminder timing (`FUNDS_REMINDER_MODE`), logging, setup, troubleshooting, known limitations. |
+| [`TEMPORAL_GUIDE.md`](TEMPORAL_GUIDE.md) | Everything Temporal: mental model, wiring, the real event history of a reminder, replay/determinism, retries, the Temporal UI, safe workflow changes, testing. |
+| [`AMB_REMINDER_FLOW_JOURNEY.md`](AMB_REMINDER_FLOW_JOURNEY.md), [`AMB_REMINDER_RADIO_FLOW_JOURNEY.md`](AMB_REMINDER_RADIO_FLOW_JOURNEY.md) | Screen-by-screen `/screen` walkthroughs of each registered flow. |
+
 ## Endpoints
 
 | Method | Path | Purpose |

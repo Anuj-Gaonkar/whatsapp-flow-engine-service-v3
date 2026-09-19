@@ -9,6 +9,18 @@ reminder message automatically.
 > (commit `36c165a`). Where the code has limitations or rough edges they are called out honestly in
 > [Section 11](#11-known-limitations-and-suggested-next-steps) rather than glossed over.
 
+> **Related documents**
+>
+> * [`TEMPORAL_GUIDE.md`](TEMPORAL_GUIDE.md) - the dedicated Temporal guide: mental model, how the
+>   service is wired to Temporal, the real event history of one reminder, replay/determinism, retries,
+>   the Temporal UI, changing workflow code safely, and a tested workflow test suite. This document
+>   links to it wherever Temporal detail goes deeper than the platform overview.
+> * [`README.md`](README.md) - quick reference for the flow engine.
+> * [`AMB_REMINDER_FLOW_JOURNEY.md`](AMB_REMINDER_FLOW_JOURNEY.md) and
+>   [`AMB_REMINDER_RADIO_FLOW_JOURNEY.md`](AMB_REMINDER_RADIO_FLOW_JOURNEY.md) - copy-pasteable
+>   screen-by-screen walkthroughs of each flow (note: their timing step predates the real Temporal
+>   scheduling, see [Section 11](#11-known-limitations-and-suggested-next-steps) item 14).
+
 ---
 
 ## Table of contents
@@ -679,7 +691,17 @@ No Java change is needed unless the flow needs a **new** simulated action.
 
 ## 5. Service 2 - `temporal-workflow-service`
 
+> This section is the *business-level* view of the reminder service. For Temporal itself - how the
+> Spring wiring works, the exact event history, replay rules, retries, the UI, versioning and testing -
+> see the dedicated **[`TEMPORAL_GUIDE.md`](TEMPORAL_GUIDE.md)**. The other side of the conversation
+> (the service that asks for the reminder and later delivers it) is
+> [Section 4](#4-service-1---whatsapp-flow-engine-service-v3), especially
+> [4.9](#49-the-funds-reminder-in-detail-demo-vs-production) and
+> [4.10](#410-reminder-delivery---post-messagesreminder).
+
 ### 5.1 What Temporal is (just enough to read the code)
+
+*Fuller treatment: [TEMPORAL_GUIDE §2 The mental model](TEMPORAL_GUIDE.md#2-the-mental-model).*
 
 Temporal is a workflow engine that makes long-running code *durable*. The vocabulary used here:
 
@@ -774,6 +796,9 @@ missing row (Section 5.7).
 
 ### 5.6 The workflow - `ReminderWorkflowImpl`
 
+*Deeper: [TEMPORAL_GUIDE §5 - the 16 events Temporal records for this workflow](TEMPORAL_GUIDE.md#5-what-temporal-records-for-one-reminder)
+and [§6 - determinism and replay](TEMPORAL_GUIDE.md#6-determinism-and-replay).*
+
 ```java
 @Override
 public void remind(String reminderId, String waId, String message, Instant remindAt) {
@@ -804,6 +829,9 @@ Why it is written this way:
 * The workflow has no overall timeout - it lives until delivery succeeds or the activity gives up.
 
 ### 5.7 The activity - `ReminderActivitiesImpl.deliverReminder`
+
+*Deeper: [TEMPORAL_GUIDE §7 - activities, retries and timeouts](TEMPORAL_GUIDE.md#7-activities-retries-and-timeouts)
+(including the verified 3-attempt success and 5-attempt failure behaviour).*
 
 Activity options (set in the workflow): `startToCloseTimeout = 30 s`, `RetryOptions.maximumAttempts
 = 5` (default exponential backoff between attempts).
@@ -840,6 +868,8 @@ If all 5 attempts fail the activity fails, the workflow fails (visible in the Te
 
 ### 5.9 Durability and failure scenarios
 
+*The same scenarios from Temporal's point of view: [TEMPORAL_GUIDE §13](TEMPORAL_GUIDE.md#13-failure-modes-seen-from-temporals-side).*
+
 | Situation | What happens |
 |---|---|
 | Reminder service restarted during the wait | Timer is in Temporal; on restart the worker reconnects, the workflow is replayed (no duplicate log lines) and the timer still fires on time. |
@@ -868,6 +898,10 @@ If all 5 attempts fail the activity fails, the workflow fails (visible in the Te
 | 9092 | Kafka (leftover, unused) |
 
 ### 6.2 `docker-compose.yml` (repo parent directory)
+
+*How the Temporal containers fit together and how to use the UI on port 8088:
+[TEMPORAL_GUIDE §3](TEMPORAL_GUIDE.md#3-temporal-in-this-project---components) and
+[§9](TEMPORAL_GUIDE.md#9-using-the-temporal-ui-and-api).*
 
 * `temporal-postgres` - Postgres 16 dedicated to Temporal (user/password `temporal`).
 * `temporal` - `temporalio/auto-setup:1.24.2`, exposes `7233`.
@@ -928,6 +962,9 @@ customer reaches the reminder screen.) Both were designed to be started from Int
 ---
 
 ## 8. Logging guide
+
+*Rows 5-11 below correspond to specific Temporal history events - see the mapping in
+[TEMPORAL_GUIDE §5](TEMPORAL_GUIDE.md#5-what-temporal-records-for-one-reminder).*
 
 Follow one reminder by grepping its `reminderId` (or `waId`). Expected sequence in DEMO mode
 (`INFO` level; timestamps/logger prefixes omitted):
@@ -1005,7 +1042,8 @@ Work through it in this order - each step narrows the problem.
 2. **Was a reminder created?** Look for `Reminder scheduled reminderId=...` in the reminder service and
    `GET /reminders?waId=<number>`. None -> the call from the flow engine failed (is 8083 up? check
    `TEMPORAL_WORKFLOW_SERVICE_BASE_URL`; is Temporal on 7233 reachable?).
-3. **Is the timer running?** Temporal UI (`:8088`) -> the workflow should be `Running` with a pending
+3. **Is the timer running?** (How to read the UI: [TEMPORAL_GUIDE §9](TEMPORAL_GUIDE.md#9-using-the-temporal-ui-and-api).)
+   Temporal UI (`:8088`) -> the workflow should be `Running` with a pending
    timer. If the workflow is `Running` but nothing happens at the due time, the reminder service
    (worker) is not running or cannot reach Temporal.
 4. **Did the timer fire?** `Reminder timer fired ...` then `Delivering reminder ... attempt=N`. Attempt
@@ -1078,8 +1116,15 @@ Stated plainly so nobody is surprised later. None of these stop the DEMO working
 17. `temporal-workflow-service` has no Git remote configured, and its default branch is `master`
     (the flow engine uses `main`).
 18. Tests: the reminder service only has the default Spring context-load test; there are no unit tests
-    for the delay mapping or the workflow (Temporal's `temporal-testing` test-server dependency is
-    already on the classpath and could be used for time-skipping workflow tests).
+    for the delay mapping or the workflow. A ready-to-use, already-run workflow test class (time-skipping,
+    replay, retry and retry-exhaustion cases) is in
+    [TEMPORAL_GUIDE §12](TEMPORAL_GUIDE.md#12-testing-workflows); it has not been added to the repo yet.
+
+Items 2-5 and 15-16 above have Temporal-specific detail and suggested fixes in
+[TEMPORAL_GUIDE §7.3 (at-least-once delivery)](TEMPORAL_GUIDE.md#73-at-least-once-not-exactly-once),
+[§8 (workflow ids and idempotency)](TEMPORAL_GUIDE.md#8-workflow-ids-and-idempotency),
+[§10 (cancel/terminate/reschedule)](TEMPORAL_GUIDE.md#10-operating-reminders-cancel-terminate-reschedule) and
+[§14 (production considerations)](TEMPORAL_GUIDE.md#14-production-considerations).
 
 ---
 
