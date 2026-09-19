@@ -1,5 +1,6 @@
 package com.hdfc.flowengine.service;
 
+import com.hdfc.flowengine.config.FundsReminderProperties;
 import com.hdfc.flowengine.entity.FlowNode;
 import com.hdfc.flowengine.entity.FlowNodeHistory;
 import com.hdfc.flowengine.entity.FlowSession;
@@ -60,6 +61,7 @@ public class FlowEngineService {
 	private final FlowSessionRepository flowSessionRepository;
 	private final FlowNodeHistoryRepository flowNodeHistoryRepository;
 	private final TemporalReminderClient temporalReminderClient;
+	private final FundsReminderProperties fundsReminderProperties;
 
 	/**
 	 * Meta's first call for a Flow instance. Normally the flow_session row already exists
@@ -163,8 +165,12 @@ public class FlowEngineService {
 			case ACTION_GENERATE_FUND_LINK ->
 					context.put("payment_link", "https://pay.hdfcbank.com/amb/" + shortId());
 			case ACTION_SCHEDULE_FUNDS_REMINDER -> {
-				int days = resolveReminderDays(context.get(FUNDS_TIMING_OPTION_FIELD));
-				Instant remindAt = Instant.now().plus(days, ChronoUnit.DAYS);
+				Object timingOption = context.get(FUNDS_TIMING_OPTION_FIELD);
+				ReminderDelay delay = resolveReminderDelay(timingOption);
+				Instant remindAt = Instant.now().plus(delay.amount(), delay.unit());
+				log.info("Funds reminder requested waId={} timingOption={} mode={} delay={} {} remindAt={}",
+						session.getWaId(), timingOption, fundsReminderProperties.mode(), delay.amount(),
+						delay.unit(), remindAt);
 				TemporalReminderClient.ScheduleResult result =
 						temporalReminderClient.schedule(session.getWaId(), FUNDS_REMINDER_MESSAGE, remindAt);
 				context.put("reminder_id", result.reminderId());
@@ -181,13 +187,18 @@ public class FlowEngineService {
 		return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 	}
 
-	private int resolveReminderDays(Object timingOption) {
-		return switch (String.valueOf(timingOption)) {
+	private record ReminderDelay(long amount, ChronoUnit unit) {
+	}
+
+	private ReminderDelay resolveReminderDelay(Object timingOption) {
+		boolean demo = fundsReminderProperties.mode() == FundsReminderProperties.Mode.DEMO;
+		long amount = switch (String.valueOf(timingOption)) {
 			case "within_three_days" -> 3;
-			case "within_seven_days" -> 7;
-			case "within_fifteen_days" -> 15;
-			default -> 7;
+			case "within_seven_days" -> demo ? 5 : 7;
+			case "within_fifteen_days" -> demo ? 7 : 15;
+			default -> demo ? 5 : 7;
 		};
+		return new ReminderDelay(amount, demo ? ChronoUnit.MINUTES : ChronoUnit.DAYS);
 	}
 
 	/**

@@ -27,6 +27,12 @@ server:
 temporal-workflow-service:
   base-url: ${TEMPORAL_WORKFLOW_SERVICE_BASE_URL:http://localhost:8083}
 
+# DEMO: funds reminder fires after 3/5/7 minutes (by timing option; 5 if unknown) so demos don't
+# wait days. PRODUCTION: real delays of 3/7/15 days (7 if unknown). Set FUNDS_REMINDER_MODE=PRODUCTION.
+reminder:
+  funds:
+    mode: ${FUNDS_REMINDER_MODE:DEMO}
+
 whatsapp:
   cloud-api-base-url: https://graph.facebook.com/v20.0
   waba-id: ${WA_WABA_ID:107196838679694}
