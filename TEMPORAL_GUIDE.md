@@ -137,7 +137,7 @@ slept for two of its three days simply resumes with one day left.
 
 | Component | Where | Notes |
 |---|---|---|
-| Temporal server | `docker-compose.yml` (repo parent dir) service `temporal`, port **7233** (gRPC) | `temporalio/auto-setup:1.24.2`; auto-setup creates the schema and the `default` namespace on first start. |
+| Temporal server | `docker-compose.yml` (in this repo; the author's original copy is in the parent dir) service `temporal`, port **7233** (gRPC) | `temporalio/auto-setup:1.24.2`; auto-setup creates the schema and the `default` namespace on first start. |
 | Temporal's database | service `temporal-postgres` (Postgres 16, user/password `temporal`) | **Separate** from the application Postgres on 5434 - never shared. |
 | Temporal Web UI | service `temporal-ui` (`temporalio/ui:2.31.2`), **http://localhost:8088** | Inspect workflows and histories. No authentication enabled. |
 | Temporal Java SDK | `io.temporal:temporal-spring-boot-starter:1.39.0` (in `temporal-workflow-service/pom.xml`) | Plus `temporal-testing:1.39.0` in test scope. |
@@ -464,6 +464,22 @@ the local server started 06:43:15 and closed 06:46:23 UTC (about 3 min 8 s, hist
 gap is much larger than the delay you expected, look at the History tab for when `TimerFired` happened
 versus when `ActivityTaskCompleted` did, and at the activity's attempt count.
 
+### 9.3a The reminder service's own audit endpoint
+
+If you'd rather not open the UI, `temporal-workflow-service` exposes the same information over REST
+(added in commit `7d23950`, described from the source - not run for this document):
+
+```bash
+curl http://localhost:8083/reminders/REM-XXXXXXXX/audit
+```
+
+It returns `workflowStatus` (Temporal's view), `reminderStatus` (the service's own row - the two can
+briefly disagree), `events[]` (the workflow history, oldest first, e.g. `TIMER_STARTED` with
+"fires in PT3M") and `pendingActivities[]` (attempt N of 5 and the last failure - the same data as the
+UI's *Pending Activities* section, and the only place failed attempts between retries are visible).
+`404` = unknown reminder; `410 Gone` = the row exists but the workflow is past the namespace's
+retention period. Full field list: [REMINDER_SERVICES_GUIDE §5.3](REMINDER_SERVICES_GUIDE.md#53-rest-api).
+
 ### 9.4 Old, still-running workflows
 
 Workflows started **before** DEMO mode was introduced were scheduled for real days (3/7/15) and stay
@@ -761,7 +777,7 @@ scenarios as Temporal sees them:
 | Reminder service down for the whole wait, back later | Timer fires on the **server** regardless. The workflow task waits on the task queue until a worker polls. | Workflow shows timer fired / task pending; delivery happens when the service is back (late, not lost). |
 | Reminder service restarted mid-wait | Worker reconnects; the sleeping workflow is untouched. | Nothing. No duplicate logs (replay-aware logger). |
 | No worker on `REMINDER_TASK_QUEUE` (wrong queue name, service not started) | Tasks accumulate on the queue. | Workflow "Running" forever with no progress; UI **Workers** tab empty. |
-| Temporal server down when scheduling | `WorkflowClient.start` throws -> `POST /reminders` fails. | 5xx from the reminder service; flow engine shows the customer an error ([§4.9](REMINDER_SERVICES_GUIDE.md#49-the-funds-reminder-in-detail-demo-vs-production)). |
+| Temporal server down when scheduling | `WorkflowClient.start` throws -> `POST /reminders` fails. | 5xx from the reminder service. The flow engine logs `Could not schedule funds reminder`, but since `660ae22` it swallows the error and the customer **still sees "Reminder Set"** with no reminder behind it ([§4.9](REMINDER_SERVICES_GUIDE.md#49-the-funds-reminder-in-detail-demo-vs-production)). |
 | Temporal server down when a timer is due | Timers fire once the server is back. | Late delivery. |
 | Delivery activity throws | Retry with backoff, up to 5 attempts. | Pending Activities shows attempt N + last error; `attempt=N` in our log. |
 | All 5 attempts fail | Activity fails -> workflow fails. | Workflow **Failed**; `reminder` row **still `SCHEDULED`** (nothing sets `FAILED`). |
@@ -798,7 +814,8 @@ Not a checklist of things that are wrong today - things to decide before this le
    Thousands of pending reminders are a storage concern on Temporal's database, not a worker one.
 10. **Version alignment.** SDK 1.39.0 talks to server 1.24.2 without problems today; keep an eye on
     compatibility notes when upgrading either.
-11. **Leftover Kafka container** in `docker-compose.yml` is unrelated to Temporal and can be removed
+11. **Leftover Kafka container** in the *parent-directory* `docker-compose.yml` (not the one in this
+    repo) is unrelated to Temporal and can be removed
     ([REMINDER_SERVICES_GUIDE §6.2](REMINDER_SERVICES_GUIDE.md#6-infrastructure-and-ports)).
 12. **The 24-hour WhatsApp messaging window** can make PRODUCTION-length reminders undeliverable
     regardless of how well Temporal fires them - that is a WhatsApp constraint, described in

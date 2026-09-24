@@ -15,6 +15,20 @@ own, fully isolated Postgres database.
 | [`TEMPORAL_GUIDE.md`](TEMPORAL_GUIDE.md) | Everything Temporal: mental model, wiring, the real event history of a reminder, replay/determinism, retries, the Temporal UI, safe workflow changes, testing. |
 | [`AMB_REMINDER_FLOW_JOURNEY.md`](AMB_REMINDER_FLOW_JOURNEY.md), [`AMB_REMINDER_RADIO_FLOW_JOURNEY.md`](AMB_REMINDER_RADIO_FLOW_JOURNEY.md) | Screen-by-screen `/screen` walkthroughs of each registered flow. |
 
+## Quick start
+
+```bash
+docker compose up -d postgres        # Postgres on :5434, schema + both flows loaded automatically
+./mvnw spring-boot:run               # .\mvnw.cmd on Windows - service on :8082 (needs Java 21)
+curl localhost:8082/actuator/health  # {"status":"UP",...}
+```
+
+Then drive a flow with `curl` against `/screen` - no WhatsApp, keys or Temporal needed. Temporal
+(`docker compose up -d`) and the separate `temporal-workflow-service` are only needed for the funds
+reminder step; without them that step logs `Could not schedule funds reminder` and the flow carries
+on. For a real WhatsApp test (ngrok, Meta configuration, RSA key) see
+[`SETUP_GUIDE.md`](SETUP_GUIDE.md).
+
 ## Endpoints
 
 | Method | Path | Purpose |
@@ -25,6 +39,10 @@ own, fully isolated Postgres database.
 | `POST` | `/trigger` | Sends a Flow to a WhatsApp number: `{"to": "9199...", "flowKey": "AMB_REMINDER"}`. `flowKey` optional, defaults to `flows.default-flow-key`. |
 | `GET` | `/sessions/{flowToken}/history` | One Flow instance's full interaction history, in order. |
 | `GET` | `/session/{waId}/history` | Every Flow instance that customer has ever had, each with its own history attached. |
+| `GET` | `/sessions/{flowToken}/conversation` | UI-friendly view of the same session: each step walked plus the options offered, with the one chosen marked. |
+| `GET` | `/flows/{flowKey}/graph` | A whole flow as nodes and edges - what `static/flow-graph.html` (`/flow-graph.html`) draws. |
+| `POST` | `/messages/reminder` | Internal: sends a plain WhatsApp text `{"waId","message"}`. Called by `temporal-workflow-service` when a reminder falls due. |
+| `GET` | `/actuator/health`, `/swagger-ui.html` | Health check; OpenAPI UI for every endpoint above. |
 
 See `AMB_REMINDER_FLOW_JOURNEY.md` and `AMB_REMINDER_RADIO_FLOW_JOURNEY.md` for a full,
 copy-pasteable screen-by-screen walkthrough of each registered flow via `/screen`.
@@ -40,7 +58,10 @@ every registered flow), never by `flow_code` or the request path.
 
 ## Database
 
-Own database (`chatbot_v3` by default), same Postgres instance V2 uses, own schema
+**With Docker (recommended):** `docker compose up -d postgres` creates `chatbot_v3` and runs every
+script in `db/` on first boot, so there is nothing else to do. To start over: `docker compose down -v`.
+
+**Against an existing Postgres:** own database (`chatbot_v3` by default), same Postgres instance V2 uses, own schema
 (`flow_engine`) - no tables shared with V2 or anything else. `spring.jpa.hibernate.ddl-auto` is
 `validate`, not `update`: this service never creates or alters schema itself. Run, in order,
 before starting the app:
@@ -63,6 +84,10 @@ V2's (see `db/01_schema.sql`), just in an isolated database.
 
 ## Encryption keys
 
+`keys/` is **git-ignored** - it is not in a clone; ask the repo owner for `private_plain.pem` (or
+generate your own pair and register it with Meta: `SETUP_GUIDE.md` section 6.4). Only real Meta
+traffic on `/webhook/flow` needs it; `/screen` testing and app startup do not.
+
 `keys/` holds the same RSA keypair as V2's (`private.pem` passphrase-encrypted,
 `private_plain.pem` the pre-decrypted PKCS8 form the app actually reads by default, `public.pem`
 the half already registered with Meta) - both services can share it since the keypair is
@@ -71,6 +96,9 @@ registered per phone number, not per service. `whatsapp.rsa-private-key-path` po
 
 ## Config
 
-All of `whatsapp.*` and `flows.*` in `application.yaml` are env-var backed - nothing sensitive is
-hardcoded. Server runs on port `8082` (V2 uses `8081`, chat-bot-service uses `8080`) so all three
+All of `whatsapp.*` and `flows.*` in `application.yaml` are env-var backed, but the *defaults* written
+in the file are the author's test-account values - override them (`WA_ACCESS_TOKEN`, `WA_APP_SECRET`,
+`WA_PHONE_NUMBER_ID`, ... - full list in `SETUP_GUIDE.md` section 6.3) and don't reuse them for anything
+real. `FUNDS_REMINDER_MODE` (`DEMO` minutes / `PRODUCTION` days) and `TEMPORAL_WORKFLOW_SERVICE_BASE_URL`
+are env-var backed too. Server runs on port `8082` (V2 uses `8081`, chat-bot-service uses `8080`) so all three
 can run side by side locally.

@@ -96,7 +96,27 @@ No separate ack screen here - `PRO_FUNDS_TIMING_SCREEN` is reached directly.
 | 2 | `PRO_FUNDS_TIMING_SCREEN`, `funds_timing_option=within_seven_days` | `PRO_FUNDS_REMINDER_SET_SCREEN` (terminal) |
 
 `funds_timing_option` accepts `within_three_days` / `within_seven_days` / `within_fifteen_days` -
-all three route to the same terminal screen; only the fabricated `reminder_date` differs.
+all three route to the same terminal screen. What differs is the **real reminder** this step schedules
+(`ACTION_SCHEDULE_FUNDS_REMINDER` -> `temporal-workflow-service` `POST /reminders`), and so the
+`reminder_date` in the response:
+
+| Option | DEMO mode (default) - fires after | PRODUCTION mode - fires after |
+|---|---|---|
+| `within_three_days` | 3 minutes | 3 days |
+| `within_seven_days` | 5 minutes | 7 days |
+| `within_fifteen_days` | 7 minutes | 15 days |
+
+`reminder_date` is that fire time as a date in Asia/Kolkata - so in DEMO mode it is simply today. Mode
+is set by `FUNDS_REMINDER_MODE` (see `REMINDER_SERVICES_GUIDE.md` section 4.9).
+
+Two things to know when calling `/screen` by hand:
+
+* `reminder_id` is only present if the reminder service (`:8083`) accepted the request. If it isn't
+  running the call is logged as `Could not schedule funds reminder`, the response still comes back
+  **without** `reminder_id`, and nothing is scheduled. Start Temporal and the reminder service to
+  get one (`SETUP_GUIDE.md` section 5).
+* A made-up `flow_token` has no `wa_id`, so any reminder it schedules targets `UNKNOWN` and can't be
+  delivered. Create the session with `POST /trigger` first if you want the text to actually arrive.
 
 Step 2 in full, since it carries the `action_code=SCHEDULE_FUNDS_REMINDER` effect:
 ```json
@@ -114,7 +134,7 @@ Step 2 in full, since it carries the `action_code=SCHEDULE_FUNDS_REMINDER` effec
     "amb_menu_option": "funds_shortly",
     "funds_timing_option": "within_seven_days",
     "reminder_id": "REM-A1B2C3D4",
-    "reminder_date": "2026-09-09"
+    "reminder_date": "2026-09-09"   // in DEMO mode this is today's date instead
   }
 }
 ```

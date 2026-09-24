@@ -5,8 +5,8 @@ answer a WhatsApp Flow ("I expect funds shortly -> Within 3 days") and later rec
 reminder message automatically.
 
 > Scope: this document describes the code exactly as it stands on `main` of
-> `whatsapp-flow-engine-service-v3` (commit `1505d76`) and `master` of `temporal-workflow-service`
-> (commit `36c165a`). Where the code has limitations or rough edges they are called out honestly in
+> `whatsapp-flow-engine-service-v3` (commit `660ae22`) and `master` of `temporal-workflow-service`
+> (commit `173ff3f`). Where the code has limitations or rough edges they are called out honestly in
 > [Section 11](#11-known-limitations-and-suggested-next-steps) rather than glossed over.
 
 > **Related documents**
@@ -15,11 +15,13 @@ reminder message automatically.
 >   service is wired to Temporal, the real event history of one reminder, replay/determinism, retries,
 >   the Temporal UI, changing workflow code safely, and a tested workflow test suite. This document
 >   links to it wherever Temporal detail goes deeper than the platform overview.
+> * [`SETUP_GUIDE.md`](SETUP_GUIDE.md) - **getting it running on a new machine**: Docker
+>   (`docker-compose.yml` in this repo), `curl` smoke tests, ngrok and Meta configuration. Section 7
+>   below is the short version.
 > * [`README.md`](README.md) - quick reference for the flow engine.
 > * [`AMB_REMINDER_FLOW_JOURNEY.md`](AMB_REMINDER_FLOW_JOURNEY.md) and
 >   [`AMB_REMINDER_RADIO_FLOW_JOURNEY.md`](AMB_REMINDER_RADIO_FLOW_JOURNEY.md) - copy-pasteable
->   screen-by-screen walkthroughs of each flow (note: their timing step predates the real Temporal
->   scheduling, see [Section 11](#11-known-limitations-and-suggested-next-steps) item 14).
+>   screen-by-screen walkthroughs of each flow.
 
 ---
 
@@ -121,8 +123,9 @@ flowchart LR
 * **Durability.** If either Spring app is restarted while a reminder is pending, the reminder is not
   lost: Temporal persisted the timer in its own database, and a restarted worker picks it up.
 * **Direct HTTP, no Kafka.** Earlier iterations of the reminder POC published events to Kafka. The
-  current design uses plain HTTP in both directions - simpler to run and debug. (The Kafka container
-  is still listed in `docker-compose.yml` but nothing uses it any more - see
+  current design uses plain HTTP in both directions - simpler to run and debug. (A Kafka container
+  is still listed in the *parent-directory* `docker-compose.yml` but nothing uses it any more, and
+  the compose file in this repo doesn't have it - see
   [Section 11](#11-known-limitations-and-suggested-next-steps).)
 
 ### 2.3 Repositories and layout
@@ -131,11 +134,17 @@ Both projects live side by side (each is its own Git repository):
 
 ```
 Chat-Bot-V3/
-├── docker-compose.yml                 Temporal server + UI + its Postgres (+ unused Kafka)
-├── whatsapp-flow-engine-service-v3/   Service 1 (git repo, branch main)
+├── docker-compose.yml                 author's original local stack: Temporal + UI + its Postgres (+ unused Kafka)
+├── whatsapp-flow-engine-service-v3/   Service 1 (git repo, branch main, pushed to GitHub)
+│   ├── docker-compose.yml             the shareable stack: app Postgres (auto-loads db/*.sql) + Temporal + UI
+│   ├── SETUP_GUIDE.md                 how to run it on a new machine
+│   └── keys/                          RSA keypair - git-ignored, shared out of band
 ├── temporal-workflow-service/         Service 2 (git repo, branch master, no remote configured)
 └── yaml-workflow-service/             unrelated sibling, not covered here
 ```
+
+Anyone cloning only `whatsapp-flow-engine-service-v3` gets Service 1 and its compose file; Service 2
+must be shared separately. The flow engine works without it (see Section 4.9, failure behaviour).
 
 ### 2.4 Technology stack
 
@@ -617,15 +626,22 @@ The DEMO mapping is positional (1st, 2nd, 3rd option -> 3, 5, 7). The **on-scree
 4. `TemporalReminderClient.schedule(waId, FUNDS_REMINDER_MESSAGE, remindAt)` -> `POST
    {temporal-workflow-service.base-url}/reminders` with JSON `{waId, message, remindAt}`. The reminder
    text is the constant *"Reminder: please transfer funds to maintain your Average Monthly Balance."*
-5. From the `201` response store `context.reminder_id` (the `REM-XXXXXXXX` id).
+5. From the `201` response store `context.reminder_id` (the `REM-XXXXXXXX` id). **Only on success** -
+   if the call in step 4 failed, `reminder_id` is simply absent (see *Failure behaviour* below).
 6. Store `context.reminder_date` = `remindAt` converted to **Asia/Kolkata** as a plain date
    (`yyyy-MM-dd`). (It is a display value only - in DEMO it will simply be today's date - and the
    terminal screen declares it in its data but the sample screen text does not print it.)
 
-**Failure behaviour:** the HTTP call happens *inside* the `dataExchange` transaction. If the reminder
-service is down or returns an error, the exception propagates, the transaction rolls back (the
-customer's session stays on the previous screen) and the customer sees "Something went wrong. Please
-try again." Nothing is scheduled.
+**Failure behaviour (changed in `660ae22`):** the HTTP call happens *inside* the `dataExchange`
+transaction, but `applySimulatedAction` now wraps it in a `try/catch (RuntimeException)`. If the
+reminder service is down, unreachable or returns an error, the service logs
+`Could not schedule funds reminder waId=... - continuing without one` (at `ERROR`, with the stack
+trace), does **not** set `reminder_id`, still sets `reminder_date`, and the customer proceeds to the
+normal "Reminder Set" screen. **No reminder is created and none is ever sent.** This was done so the
+flow can be tested end to end on a machine with no Temporal stack (see
+[`SETUP_GUIDE.md`](SETUP_GUIDE.md)). The trade-off: the customer is told a reminder is set when it
+isn't - see Section 11, item 19. Before this change the exception propagated, the transaction rolled
+back and the customer saw "Something went wrong. Please try again."
 
 The screen text ("We will send you a reminder one day before the expected date") is static text in the
 Meta Flow JSON and is **not** what the code does - the reminder fires exactly at `remindAt`.
@@ -725,8 +741,10 @@ Base package `com.hdfc.temporal_workflow_service`.
 | Class | Layer | Purpose |
 |---|---|---|
 | `TemporalWorkflowServiceApplication` | entry | `@SpringBootApplication`; forces UTC default timezone. |
-| `controller.ReminderController` | REST | `POST /reminders`, `GET /reminders/{id}`, `GET /reminders?waId=`. |
+| `controller.ReminderController` | REST | `POST /reminders`, `GET /reminders/{id}`, `GET /reminders?waId=`, `GET /reminders/{id}/audit`. |
 | `service.ReminderService` | logic | `createReminder` (start workflow + save row), `findById`, `findByWaId`. |
+| `service.ReminderAuditService` | logic | `findAudit`: builds a live audit trail for one reminder from Temporal (fetches the workflow history and describes the execution for pending activities). Nothing is stored. |
+| `model.ReminderAuditResponse` | DTO | `{reminderId, workflowId, runId, reminderStatus, workflowStatus, events[], pendingActivities[]}`. |
 | `model.CreateReminderRequest` | DTO | `{waId, message, remindAt}` with validation (`@NotBlank`, `@NotBlank`, `@NotNull @Future`). |
 | `model.CreateReminderResponse` | DTO | `{reminderId, workflowId, remindAt}`. |
 | `model.ReminderResponse` | DTO | Full row view, `from(Reminder)` mapper. |
@@ -751,6 +769,18 @@ with no manual worker bean.
 | `POST /reminders` | `{"waId":"9199...","message":"text","remindAt":"2026-09-19T12:30:00Z"}` | `201` `{reminderId, workflowId, remindAt}` | `400` if `waId`/`message` blank, `remindAt` null or **not in the future** (Bean Validation); `5xx` if Temporal is unreachable |
 | `GET /reminders/{id}` | reminder id (`REM-...`) | `200` `ReminderResponse` | `404` |
 | `GET /reminders?waId=...` | customer id | `200` list (possibly empty) | - |
+| `GET /reminders/{id}/audit` | reminder id (`REM-...`) | `200` `ReminderAuditResponse` - see below | `404` unknown reminder; `410 Gone` if the reminder row exists but Temporal no longer holds its workflow (past the namespace's retention period) |
+
+**The audit endpoint** (`ReminderAuditService`) shows what Temporal itself recorded, without opening
+the Temporal UI: `workflowStatus` (`RUNNING`, `COMPLETED`, `FAILED`, ...) alongside this service's own
+`reminderStatus` (they can briefly disagree, e.g. the workflow `COMPLETED` a moment before the row is
+marked `FIRED`); `events` - the workflow's event history, oldest first, each with `eventId`,
+`timestamp`, `eventType` (e.g. `WORKFLOW_EXECUTION_STARTED`, `TIMER_STARTED`, `TIMER_FIRED`,
+`ACTIVITY_TASK_SCHEDULED`) and a one-line `detail` for the types that have one (task queue, "fires in
+PT3M", activity name, failure message); and `pendingActivities` - activities currently scheduled or
+being retried, with `attempt` / `maximumAttempts` and `lastFailure`. That last list is the only place
+failed delivery attempts *between* retries show up, because Temporal history records an activity only
+once it finally succeeds or fails for good (see [TEMPORAL_GUIDE §9](TEMPORAL_GUIDE.md#9-using-the-temporal-ui-and-api)).
 
 `remindAt` is an ISO-8601 instant (UTC). The flow engine sends it as `Instant`.
 
@@ -876,7 +906,7 @@ If all 5 attempts fail the activity fails, the workflow fails (visible in the Te
 | Reminder service down when the timer fires | Temporal holds the task; once a worker is back the workflow continues (late, not lost). |
 | Flow engine down at delivery | HTTP call fails -> activity retries (5 attempts, backoff). After that the workflow fails; row stays `SCHEDULED`. |
 | WhatsApp rejects the message (e.g. expired token) | Flow engine's `sendText` throws -> 5xx -> same retry path. |
-| Temporal server down at scheduling | `POST /reminders` fails; the flow engine surfaces "Something went wrong" to the customer. |
+| Temporal server (or the reminder service) down at scheduling | `POST /reminders` fails; the flow engine logs `Could not schedule funds reminder`, and the customer still reaches "Reminder Set" - **but no reminder exists** (Section 11, item 19). |
 | Postgres (`chatbot_reminder`) down at scheduling | Transaction fails **after** the workflow may already have started -> an orphan workflow can exist with no row; it will still fire. |
 | Flow engine's own transaction fails *after* scheduling succeeded | The reminder still exists and will fire even though the customer's session did not advance. |
 
@@ -894,28 +924,48 @@ If all 5 attempts fail the activity fails, the workflow fails (visible in the Te
 | **8083** | **temporal-workflow-service** |
 | **7233** | Temporal server (gRPC) |
 | 8088 | Temporal Web UI (`http://localhost:8088`, mapped from the container's 8080) |
-| 5434 | Shared Postgres (databases `chatbot_v3`, `chatbot_reminder`, ...) |
-| 9092 | Kafka (leftover, unused) |
+| 5434 | Application Postgres (databases `chatbot_v3`, `chatbot_reminder`, ...) |
+| 9092 | Kafka (leftover in the author's parent-directory compose file only, unused) |
+| 4040 | ngrok inspector, when tunnelling ([`SETUP_GUIDE.md`](SETUP_GUIDE.md)) |
 
-### 6.2 `docker-compose.yml` (repo parent directory)
+### 6.2 `docker-compose.yml`
+
+There are two compose files; don't confuse them.
+
+**In this repo (`whatsapp-flow-engine-service-v3/docker-compose.yml`)** - the one to use, and the one
+anybody who clones the repo gets. Verified by starting it from an empty volume:
+
+* `postgres` - Postgres 16 on host port `5434`, role `chatbot`/`chatbot`, creates database
+  `chatbot_v3` and **runs everything in `db/`** (`01_schema.sql`, `02_seed...`, `03_seed...`) on first
+  boot - so the schema and both flows are loaded with no `psql` needed. Only runs on an empty data
+  volume; `docker compose down -v` to redo it.
+* `temporal-postgres` - Postgres 16 dedicated to Temporal (user/password `temporal`).
+* `temporal` - `temporalio/auto-setup:1.24.2`, exposes `7233`.
+* `temporal-ui` - `temporalio/ui:2.31.2`, on `8088`.
+
+`docker compose up -d postgres` is enough to run the flow engine alone; `docker compose up -d` adds
+Temporal. No Kafka.
+
+**In the parent directory (`Chat-Bot-V3/docker-compose.yml`)** - the author's original local stack:
+the same three Temporal services plus the unused `kafka` container (single-node KRaft 3.8.0 on
+`9092`). Its application Postgres is intentionally *not* in the file; the author runs a long-lived
+container (`chat-bot-service-v2-postgres`, host port `5434`) shared by all HDFC chatbot services.
+Don't run both stacks at once - they claim the same ports (`7233`, `8088`, and `5434` if the
+long-lived Postgres is up).
 
 *How the Temporal containers fit together and how to use the UI on port 8088:
 [TEMPORAL_GUIDE §3](TEMPORAL_GUIDE.md#3-temporal-in-this-project---components) and
 [§9](TEMPORAL_GUIDE.md#9-using-the-temporal-ui-and-api).*
-
-* `temporal-postgres` - Postgres 16 dedicated to Temporal (user/password `temporal`).
-* `temporal` - `temporalio/auto-setup:1.24.2`, exposes `7233`.
-* `temporal-ui` - `temporalio/ui:2.31.2`, on `8088`.
-* `kafka` - single-node KRaft Kafka 3.8.0 on `9092` - **no longer used** by either service.
-
-The application Postgres (`5434`) is intentionally **not** in this compose file; it is a long-lived
-container shared by all HDFC chatbot services.
 
 ---
 
 ## 7. Running everything locally
 
 ### 7.1 One-time setup
+
+> **Short on time / new machine?** [`SETUP_GUIDE.md`](SETUP_GUIDE.md) does all of this with Docker
+> and no local `psql`: `docker compose up -d postgres` loads the `chatbot_v3` schema and both flows
+> automatically. The manual steps below are for an existing Postgres you already run.
 
 1. **Postgres** on `localhost:5434` with a role `chatbot`/`chatbot` that can create databases.
 2. Create databases and schemas:
@@ -929,8 +979,8 @@ container shared by all HDFC chatbot services.
    psql "postgresql://chatbot:chatbot@localhost:5434/chatbot_v3"       -f whatsapp-flow-engine-service-v3/db/03_seed_amb_reminder_radio_example.sql
    psql "postgresql://chatbot:chatbot@localhost:5434/chatbot_reminder" -f temporal-workflow-service/db/01_schema.sql
    ```
-3. **Temporal**: from the parent directory, `docker compose up -d temporal-postgres temporal temporal-ui`
-   (Kafka is not needed).
+3. **Temporal**: `docker compose up -d temporal-postgres temporal temporal-ui` (from this repo, or
+   the parent directory if you use the original stack; Kafka is not needed).
 4. **RSA key** for Flow decryption at `whatsapp-flow-engine-service-v3/keys/private_plain.pem`
    (only needed for real Meta traffic, not for `/screen` testing).
 
@@ -941,7 +991,8 @@ container shared by all HDFC chatbot services.
 3. `whatsapp-flow-engine-service-v3` (port 8082).
 
 (Order between the two apps is not strict - the flow engine only calls the reminder service when a
-customer reaches the reminder screen.) Both were designed to be started from IntelliJ; from a shell use
+customer reaches the reminder screen. The flow engine also runs fine with **no** reminder service or
+Temporal at all; the reminder step just logs an error and schedules nothing - Section 4.9.) Both were designed to be started from IntelliJ; from a shell use
 `./mvnw spring-boot:run` in each project.
 
 ### 7.3 Useful environment variables
@@ -1041,7 +1092,9 @@ Work through it in this order - each step narrows the problem.
    `DAYS`, the running build has no DEMO mode - rebuild/restart from the current branch.
 2. **Was a reminder created?** Look for `Reminder scheduled reminderId=...` in the reminder service and
    `GET /reminders?waId=<number>`. None -> the call from the flow engine failed (is 8083 up? check
-   `TEMPORAL_WORKFLOW_SERVICE_BASE_URL`; is Temporal on 7233 reachable?).
+   `TEMPORAL_WORKFLOW_SERVICE_BASE_URL`; is Temporal on 7233 reachable?). The customer still saw
+   "Reminder Set" either way, so look in the **flow engine's** log for
+   `Could not schedule funds reminder` - that line, with its stack trace, is the failure.
 3. **Is the timer running?** (How to read the UI: [TEMPORAL_GUIDE §9](TEMPORAL_GUIDE.md#9-using-the-temporal-ui-and-api).)
    Temporal UI (`:8088`) -> the workflow should be `Running` with a pending
    timer. If the workflow is `Running` but nothing happens at the due time, the reminder service
@@ -1106,10 +1159,10 @@ Stated plainly so nobody is surprised later. None of these stop the DEMO working
 
 **Housekeeping**
 
-13. `docker-compose.yml` still starts an unused Kafka container.
-14. `AMB_REMINDER_FLOW_JOURNEY.md` / `AMB_REMINDER_RADIO_FLOW_JOURNEY.md` still describe the timing
-    step as a simulated `computeReminderDate()` of +3/+7/+15 days; the real behaviour is now the
-    Temporal-backed scheduling described here.
+13. The **parent-directory** `docker-compose.yml` still starts an unused Kafka container (the compose
+    file in this repo doesn't).
+14. ~~The journey docs describe the timing step as a simulated `computeReminderDate()`~~ - fixed: both
+    journey docs now describe the real Temporal-backed scheduling and the DEMO/PRODUCTION delays.
 15. Both flows read `WA_FLOW_ID_AMB_REMINDER` / `WA_FLOW_MODE_AMB_REMINDER` (Section 4.5).
 16. `ReminderWorkflow`'s Javadoc still says "publishes the reminder event" (a leftover from the Kafka
     design); it now calls the flow engine over HTTP.
@@ -1119,6 +1172,12 @@ Stated plainly so nobody is surprised later. None of these stop the DEMO working
     for the delay mapping or the workflow. A ready-to-use, already-run workflow test class (time-skipping,
     replay, retry and retry-exhaustion cases) is in
     [TEMPORAL_GUIDE §12](TEMPORAL_GUIDE.md#12-testing-workflows); it has not been added to the repo yet.
+
+19. **A failed reminder is invisible to the customer.** Since `660ae22` the reminder call is wrapped
+    in a `try/catch` (Section 4.9): if `temporal-workflow-service` or Temporal is down, the customer
+    still sees "Reminder Set" though nothing was scheduled, and the only trace is one `ERROR` log line
+    in the flow engine. Fine for testing without Temporal; for real use, either make the catch
+    configurable (fail the screen in production) or persist a "reminder pending" record and retry.
 
 Items 2-5 and 15-16 above have Temporal-specific detail and suggested fixes in
 [TEMPORAL_GUIDE §7.3 (at-least-once delivery)](TEMPORAL_GUIDE.md#73-at-least-once-not-exactly-once),
