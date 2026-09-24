@@ -133,8 +133,10 @@ walkthrough of every screen and branch. **If this works, levels B and C are only
 ## 5. Reminders with Temporal (level B)
 
 The last screens of the flow ("remind me when my funds arrive") call a second service,
-**`temporal-workflow-service`** (port 8083), which owns the durable timer. Without it the rest of the
-flow works but that one step fails because the call to `:8083` has nothing to talk to.
+**`temporal-workflow-service`** (port 8083), which owns the durable timer. **Without it the flow
+still works end to end**: the service logs `Could not schedule funds reminder ... continuing without one`
+and shows the normal "Reminder Set" screen, but no reminder is created and no reminder text is
+ever sent. Skip this whole section if you aren't testing reminders.
 
 Its code is **not in this repo** - get it from the repo owner and put it next to this one. Then:
 
@@ -330,7 +332,7 @@ look while you do:
 | Flow shows an error, ngrok shows **421** | Decryption failed: private key doesn't match the public key registered for that phone number ([6.4](#64-the-rsa-key-level-c)), or `keys/private_plain.pem` is missing/encrypted. |
 | `/trigger` returns an error from Meta | Read the response body. Expired `WA_ACCESS_TOKEN`; number not on the test recipient list; wrong `WA_PHONE_NUMBER_ID`; wrong Flow ID; `draft` flow but `WA_FLOW_MODE_...=published` (or vice versa). |
 | Flow works but the button says the flow can't be found | `meta-flow-id` isn't a flow in *your* WABA - see the shared-variable caveat in [6.3](#63-configuration-you-will-override). |
-| Reached the reminder screen and it failed | Level B isn't running: `curl localhost:8083/reminders?waId=1` should not be *connection refused*, and Temporal must be up on 7233. |
+| Reached "Reminder Set" but no reminder text ever arrives | Check the app log for `Could not schedule funds reminder`. If present, level B isn't running: `curl localhost:8083/reminders?waId=1` should not be *connection refused*, and Temporal must be up on 7233. (The screen is shown either way.) |
 | Reminder scheduled but no text arrives | Full checklist: `REMINDER_SERVICES_GUIDE.md` section 10. Most common: expired token, or the recipient isn't allowed. |
 | Changed code/config, nothing changed | Restart the app. Check the console for `Funds reminder requested ... mode=DEMO` to confirm you're running the current build. |
 

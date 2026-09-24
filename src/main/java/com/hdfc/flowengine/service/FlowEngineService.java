@@ -171,9 +171,15 @@ public class FlowEngineService {
 				log.info("Funds reminder requested waId={} timingOption={} mode={} delay={} {} remindAt={}",
 						session.getWaId(), timingOption, fundsReminderProperties.mode(), delay.amount(),
 						delay.unit(), remindAt);
-				TemporalReminderClient.ScheduleResult result =
-						temporalReminderClient.schedule(session.getWaId(), FUNDS_REMINDER_MESSAGE, remindAt);
-				context.put("reminder_id", result.reminderId());
+				// Temporal is optional when testing: if temporal-workflow-service is down the flow
+				// still completes, it just doesn't schedule (or later send) the reminder.
+				try {
+					TemporalReminderClient.ScheduleResult result =
+							temporalReminderClient.schedule(session.getWaId(), FUNDS_REMINDER_MESSAGE, remindAt);
+					context.put("reminder_id", result.reminderId());
+				} catch (RuntimeException e) {
+					log.error("Could not schedule funds reminder waId={} - continuing without one", session.getWaId(), e);
+				}
 				context.put("reminder_date", LocalDate.ofInstant(remindAt, REMINDER_DISPLAY_ZONE).toString());
 			}
 			case ACTION_ROUTE_TO_EXECUTIVE -> context.put("handoff_id", "HANDOFF-" + shortId());
