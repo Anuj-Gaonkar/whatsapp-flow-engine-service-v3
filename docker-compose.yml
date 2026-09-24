@@ -1,0 +1,77 @@
+name: whatsapp-flow-engine-v3
+
+# Local infrastructure for whatsapp-flow-engine-service-v3 - see SETUP_GUIDE.md.
+#
+#   docker compose up -d postgres                 flow engine only (enough for /screen testing)
+#   docker compose up -d                          + Temporal server and UI (needed for the reminder)
+#
+# The apps themselves (flow engine on 8082, temporal-workflow-service on 8083) are NOT containers -
+# run them with ./mvnw spring-boot:run.
+services:
+
+  # --- Application Postgres: matches the datasource in application.yaml (localhost:5434) ---
+  postgres:
+    image: postgres:16
+    container_name: flow-engine-postgres
+    environment:
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD: chatbot
+      # First boot creates this database, then runs everything in ./db (01_schema.sql,
+      # 02_seed_..., 03_seed_...) against it, in filename order. Only happens on an EMPTY data
+      # volume - to re-run, `docker compose down -v` first.
+      POSTGRES_DB: chatbot_v3
+    ports:
+      - "5434:5432" # 5434, not 5432, so it never clashes with a Postgres already installed locally
+    volumes:
+      - app-postgres-data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot -d chatbot_v3"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # --- Temporal server + its own, fully separate Postgres (never shared with app data) ---
+  temporal-postgres:
+    image: postgres:16
+    container_name: temporal-postgres
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: temporal
+    volumes:
+      - temporal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  temporal:
+    image: temporalio/auto-setup:1.24.2
+    container_name: temporal
+    depends_on:
+      temporal-postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: temporal
+      POSTGRES_SEEDS: temporal-postgres
+    ports:
+      - "7233:7233" # gRPC frontend - what temporal-workflow-service connects to
+
+  temporal-ui:
+    image: temporalio/ui:2.31.2
+    container_name: temporal-ui
+    depends_on:
+      - temporal
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8088:8080" # http://localhost:8088
+
+volumes:
+  app-postgres-data:
+  temporal-postgres-data:

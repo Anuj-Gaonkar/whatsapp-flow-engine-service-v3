@@ -10,6 +10,7 @@ own, fully isolated Postgres database.
 
 | Document | What it covers |
 |---|---|
+| [`SETUP_GUIDE.md`](SETUP_GUIDE.md) | **Start here on a new machine.** Docker (Postgres + Temporal via `docker-compose.yml`), running the app, `curl` smoke tests, exposing it with ngrok, pointing Meta at it, troubleshooting. |
 | [`REMINDER_SERVICES_GUIDE.md`](REMINDER_SERVICES_GUIDE.md) | Complete guide to this service **and** `temporal-workflow-service`: architecture, the end-to-end reminder flow, every endpoint/table/class, DEMO vs PRODUCTION reminder timing (`FUNDS_REMINDER_MODE`), logging, setup, troubleshooting, known limitations. |
 | [`TEMPORAL_GUIDE.md`](TEMPORAL_GUIDE.md) | Everything Temporal: mental model, wiring, the real event history of a reminder, replay/determinism, retries, the Temporal UI, safe workflow changes, testing. |
 | [`AMB_REMINDER_FLOW_JOURNEY.md`](AMB_REMINDER_FLOW_JOURNEY.md), [`AMB_REMINDER_RADIO_FLOW_JOURNEY.md`](AMB_REMINDER_RADIO_FLOW_JOURNEY.md) | Screen-by-screen `/screen` walkthroughs of each registered flow. |
