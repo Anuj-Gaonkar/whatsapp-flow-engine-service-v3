@@ -1,0 +1,121 @@
+# AMB_REMINDER_RADIO
+
+- **PRO_WELCOME_SCREEN**
+    - Title: AMB Reminder
+    - Text: You are on the HDFC Bank WhatsApp Chat. We need to share some urgent and important information about AMB maintenance in your Savings Account.<br><br>Your balance maintenance in your Savings Account is currently low.<br><br>To help you continue enjoying all account benefits and avoid AMB non-maintenance charges in future, we would want you to fund your account appropriately. Please let us know how you would like to proceed.
+    - Button: Continue
+    - **PRO_AMB_MENU_SCREEN**
+        - Title: What Would You Like to Do?
+        - Heading: How Can We Help?
+        - Text: Pick whichever describes your situation best, and we'll guide you from there.
+        - Button: Continue
+        - Options (Select an option):
+            - I'll fund my account now
+                - **PRO_FUND_NOW_SCREEN**
+                    - Title: Fund Your Account
+                    - Heading: Thank you!
+                    - Text: Please fund your account by clicking on the below secured link. This will help you avoid AMB non-maintenance charges.
+                    - Link: Fund my account securely (${data.payment_link})
+                    - Button: Done
+            - I expect funds shortly
+                - **PRO_FUNDS_TIMING_SCREEN**
+                    - Title: When Do You Expect Funds?
+                    - Heading: Got It
+                    - Text: Thanks for letting us know funds are on the way. When should we expect them, so we can set the right reminder?
+                    - Button: Continue
+                    - Options (When do you expect the funds?):
+                        - Within 3 days
+                        - Within 7 days
+                        - Within 15 days
+                            - **PRO_FUNDS_REMINDER_SET_SCREEN**
+                                - Title: Reminder Set
+                                - Heading: You're all set
+                                - Text: We will send you a reminder one day before the expected date. Thank you!
+                                - Button: Done
+            - I'm facing a cash flow issue
+                - **PRO_CASH_FLOW_MENU_SCREEN**
+                    - Title: How Can We Assist You?
+                    - Heading: Thank You
+                    - Text: We understand situations can be challenging. Let us know how we can help.
+                    - Button: Continue
+                    - Options (How can we assist you?):
+                        - Remind me later
+                            - **PRO_FUNDS_TIMING_SCREEN** (see above)
+                        - Speak to an executive
+                            - **PRO_EXECUTIVE_HANDOFF_SCREEN**
+                                - Title: Connecting You
+                                - Heading: Thank you!
+                                - Text: We're connecting you with an executive who will assist you shortly.
+                                - Button: Done
+                        - Understand applicable charges
+                            - **PRO_CHARGES_INFO_SCREEN**
+                                - Title: Applicable Charges
+                                - Heading: Applicable charges
+                                - Text: You can learn more about applicable charges on our website or at your nearest branch.
+                                - Link: View charges on our website (https://www.hdfcbank.com/personal/save/accounts/amb-charges)
+                                - Button: Done
+            - I wasn't aware of this
+                - **PRO_INFO_MENU_SCREEN**
+                    - Title: Know More About
+                    - Heading: Happy to Help
+                    - Text: No worries - AMB requirements can be confusing. Pick a topic below and we'll explain.
+                    - Button: Continue
+                    - Options (Choose a topic):
+                        - AMB charges
+                        - Easy ways to maintain balance
+                            - **PRO_INFO_REDIRECT_SCREEN**
+                                - Title: Learn More
+                                - Heading: Here's a quick overview
+                                - Text: You can learn more about this on our website or by visiting your nearest branch.
+                                - Link: Visit our website (https://www.hdfcbank.com/personal/save/accounts/amb)
+                                - Button: Done
+                        - Upgrade benefits
+                            - **PRO_ACCOUNT_UPGRADE_SCREEN**
+                                - Title: Account Upgrade
+                                - Heading: Thank you for your interest
+                                - Text: Our team will reach out separately to help you explore account upgrade options for this account.
+                                - Button: Done
+            - This account is inactive
+                - **PRO_CHURN_REASON_SCREEN**
+                    - Title: Reason for Leaving
+                    - Heading: We Hear You
+                    - Text: We're sorry to hear that, and we'd like to understand why so we can do better. What's the main reason?
+                    - Button: Continue
+                    - Options (What's the main reason?):
+                        - Salary moved elsewhere
+                            - **PRO_SALARY_OFFER_SCREEN**
+                                - Title: Salary Account Offer
+                                - Heading: Thank you!
+                                - Text: We're connecting you with an executive to help convert this into a Salary Account.
+                                - Button: Done
+                        - Better offer elsewhere
+                            - **PRO_RETENTION_APPEAL_SCREEN**
+                                - Title: We'd Love to Keep You
+                                - Heading: Thank you for your response
+                                - Text: We would still like to serve you - please maintain your AMB balance to avoid any charges.
+                                - Button: Done
+                        - Account no longer needed
+                            - **PRO_VISIT_BRANCH_SCREEN**
+                                - Title: Visit Your Branch
+                                - Heading: Thank you for your response
+                                - Text: Please visit the branch for any other details.
+                                - Button: Done
+                        - Service concern
+                            - **PRO_CALLBACK_CONFIRM_SCREEN**
+                                - Title: Request a Callback
+                                - Heading: Request a Callback
+                                - Text: Thank you for your response. We can have someone from the branch call you to help with this.
+                                - Button: Request a callback
+                                - **PRO_CALLBACK_LOGGED_SCREEN**
+                                    - Title: Callback Requested
+                                    - Heading: Thank you
+                                    - Text: We've logged your request. Someone will call you back shortly.
+                                    - Button: Done
+                        - Other (please specify)
+                            - **PRO_OTHER_REASON_SCREEN**
+                                - Title: Tell Us More
+                                - Heading: One More Thing
+                                - Text: Please share a bit more detail so we can understand and follow up correctly.
+                                - Input: Your reason
+                                - Button: Continue
+                                - **PRO_CALLBACK_CONFIRM_SCREEN** (see above)
